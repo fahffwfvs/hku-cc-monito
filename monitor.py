@@ -11,19 +11,19 @@ PUSHPLUS_TOKENS = [
 ]
 
 def send_pushplus_multicast(title, content):
-    """通过 PushPlus 给所有绑定的微信发送提醒"""
+    """通过 PushPlus 给所有绑定的微信发送抢课提醒"""
     url = "http://www.pushplus.plus/send"
     for index, token in enumerate(PUSHPLUS_TOKENS, 1):
         payload = {
             "token": token.strip(),
-            "title": title,
+            "title": title,  # 微信卡片中的设备名称/标题
             "content": content,
             "template": "html"
         }
         try:
             res = requests.post(url, json=payload, timeout=10)
             if res.json().get("code") == 200:
-                print(f"[+] 成员 {index} 微信推送成功！")
+                print(f"[+] 成员 {index} 微信抢课提醒推送成功！")
             else:
                 print(f"[-] 成员 {index} 推送失败:", res.json().get("msg"))
         except Exception as e:
@@ -52,6 +52,7 @@ def main():
                 found = True
                 cols = [ele.text.strip() for ele in row.find_all(['td', 'th'])]
                 
+                # 提取剩余名额
                 try:
                     available_seats = int(cols[-2])
                 except ValueError:
@@ -59,30 +60,21 @@ def main():
 
                 print(f"当前 {TARGET_COURSE} 状态数据: {' | '.join(cols)}")
                 
-                # 判断逻辑
+                # 判断逻辑：只有剩余名额 > 0 才会触发微信推送
                 if available_seats > 0:
-                    print(f"🎉 发现空位！剩余名额: {available_seats} 个，发送抢课提醒！")
-                    title = f"🚨 CCST5037 抢课提醒！当前有 {available_seats} 个空位！"
+                    print(f"🎉 发现空位！剩余名额: {available_seats} 个，准备触发微信抢课提醒...")
+                    
+                    title = f"🚨 发现 {available_seats} 个空位！请立刻抢课！"
                     content = (
-                        f"<b>【速去 SIS 抢课】</b><br><br>"
+                        f"<b>【🚨 CCST5037 抢课提醒】</b><br><br>"
                         f"课程代码: {TARGET_COURSE}<br>"
-                        f"剩余名额: <b style='color:red;'>{available_seats}</b><br>"
+                        f"剩余名额: <b style='color:red; font-size:18px;'>{available_seats}</b><br>"
                         f"完整信息: {' | '.join(cols)}<br><br>"
-                        f"<b>请立刻登录 HKU SIS 系统！</b>"
+                        f"<b>👉 请立刻登录 HKU SIS 系统抢课！</b>"
                     )
+                    send_pushplus_multicast(title, content)
                 else:
-                    print("⚠️ 当前课程还是满的，发送满员巡检通知...")
-                    title = f"ℹ️ CCST5037 巡检通知：当前课程仍满员"
-                    content = (
-                        f"<b>【课程状态巡检】</b><br><br>"
-                        f"课程代码: {TARGET_COURSE}<br>"
-                        f"当前状态: <b style='color:gray;'>暂时满员 (空位: 0)</b><br>"
-                        f"完整信息: {' | '.join(cols)}<br><br>"
-                        f"脚本运行正常，正在持续监控中..."
-                    )
-                
-                # 无论是否有空位，都推送微信通知
-                send_pushplus_multicast(title, content)
+                    print("⚠️ 当前课程还是满的 (0 个空位)，静默跳过微信推送。")
                 break
                 
         if not found:
