@@ -4,14 +4,14 @@ from bs4 import BeautifulSoup
 TARGET_URL = "https://sweb.hku.hk/ccacad/ccc_appl/enrol_stat.html"
 TARGET_COURSE = "CCST5037"
 
-# 已填入你的 2 个用户 Token
+# 固化的 2 个 PushPlus Token
 PUSHPLUS_TOKENS = [
     "89eb5d799743446694ef494b4a8c0613",
     "d38a29652e5441fb8b05c76118cae3b6"
 ]
 
 def send_pushplus_multicast(title, content):
-    """通过 PushPlus 给所有绑定的微信发送抢课提醒"""
+    """通过 PushPlus 给所有绑定的微信发送提醒"""
     url = "http://www.pushplus.plus/send"
     for index, token in enumerate(PUSHPLUS_TOKENS, 1):
         payload = {
@@ -23,7 +23,7 @@ def send_pushplus_multicast(title, content):
         try:
             res = requests.post(url, json=payload, timeout=10)
             if res.json().get("code") == 200:
-                print(f"[+] 成员 {index} 微信抢课提醒推送成功！")
+                print(f"[+] 成员 {index} 微信推送成功！")
             else:
                 print(f"[-] 成员 {index} 推送失败:", res.json().get("msg"))
         except Exception as e:
@@ -59,9 +59,9 @@ def main():
 
                 print(f"当前 {TARGET_COURSE} 状态数据: {' | '.join(cols)}")
                 
-                # 判断逻辑：剩余名额不为 0 即代表有空位
+                # 判断逻辑
                 if available_seats > 0:
-                    print(f"🎉 发现空位！剩余名额: {available_seats} 个，准备触发微信抢课提醒...")
+                    print(f"🎉 发现空位！剩余名额: {available_seats} 个，发送抢课提醒！")
                     title = f"🚨 CCST5037 抢课提醒！当前有 {available_seats} 个空位！"
                     content = (
                         f"<b>【速去 SIS 抢课】</b><br><br>"
@@ -70,9 +70,19 @@ def main():
                         f"完整信息: {' | '.join(cols)}<br><br>"
                         f"<b>请立刻登录 HKU SIS 系统！</b>"
                     )
-                    send_pushplus_multicast(title, content)
                 else:
-                    print("⚠️ 当前课程还是满的，暂不触发微信推送。")
+                    print("⚠️ 当前课程还是满的，发送满员巡检通知...")
+                    title = f"ℹ️ CCST5037 巡检通知：当前课程仍满员"
+                    content = (
+                        f"<b>【课程状态巡检】</b><br><br>"
+                        f"课程代码: {TARGET_COURSE}<br>"
+                        f"当前状态: <b style='color:gray;'>暂时满员 (空位: 0)</b><br>"
+                        f"完整信息: {' | '.join(cols)}<br><br>"
+                        f"脚本运行正常，正在持续监控中..."
+                    )
+                
+                # 无论是否有空位，都推送微信通知
+                send_pushplus_multicast(title, content)
                 break
                 
         if not found:
