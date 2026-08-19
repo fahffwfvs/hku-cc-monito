@@ -39,6 +39,7 @@ def main():
         response = requests.get(TARGET_URL, headers=headers, timeout=15)
         response.encoding = 'utf-8'
         
+        # 异常捕获 1：网页状态码非 200 时发微信告警
         if response.status_code != 200:
             err_msg = f"[-] 网页访问失败，HTTP 状态码: {response.status_code}"
             print(err_msg)
@@ -73,26 +74,27 @@ def main():
 
                 print(f"当前 {TARGET_COURSE} 数据: {cols}")
                 
+                # 判断逻辑：只有剩余名额 > 0 才会触发微信推送
                 if available_seats > 0:
+                    print(f"🎉 发现空位！剩余名额: {available_seats} 个，准备触发微信抢课提醒...")
+                    
                     title = f"🚨 发现 {available_seats} 个空位！请立刻抢课！"
+                    content = (
+                        f"<b>【🚨 HKU CCST5037 抢课提醒】</b><br><br>"
+                        f"<b>课程代码:</b> {course_code}<br>"
+                        f"<b>课程名称:</b> {course_title}<br>"
+                        f"<b>班别 (Section):</b> {section}<br>"
+                        f"<b>总名额 (Quota):</b> {quota}<br>"
+                        f"<b>剩余名额 (Available):</b> <b style='color:red; font-size:20px;'>{available_seats}</b><br>"
+                        f"<b>Waitlist (候补人数):</b> {waitlist}<br><br>"
+                        f"<b>👉 请立刻登录 HKU SIS 系统抢课！</b>"
+                    )
+                    send_pushplus_multicast(title, content)
                 else:
-                    title = f"【课程状态巡检】{TARGET_COURSE} 剩余:{available_seats}"
-
-                content = (
-                    f"<b>【HKU {TARGET_COURSE} 课程巡检通知】</b><br><br>"
-                    f"<b>课程代码:</b> {course_code}<br>"
-                    f"<b>课程名称:</b> {course_title}<br>"
-                    f"<b>班别 (Section):</b> {section}<br>"
-                    f"<b>总名额 (Quota):</b> {quota}<br>"
-                    f"<b>剩余名额 (Available):</b> <b style='color:{'red' if available_seats > 0 else 'black'}; font-size:20px;'>{available_seats}</b><br>"
-                    f"<b>Waitlist (候补人数):</b> {waitlist}<br><br>"
-                    f"<b>完整原始列:</b> {' | '.join(cols)}<br><br>"
-                    f"{'<b>👉 请立刻登录 HKU SIS 系统抢课！</b>' if available_seats > 0 else '当前课程满员，系统持续监控中...'}"
-                )
-                
-                send_pushplus_multicast(title, content)
+                    print("⚠️ 当前课程还是满的 (0 个空位)，静默跳过微信推送。")
                 break
                 
+        # 异常捕获 2：找不到课程数据时发微信告警
         if not found:
             err_msg = f"[-] 页面中未找到 {TARGET_COURSE} 课程数据。"
             print(err_msg)
@@ -101,6 +103,7 @@ def main():
                 f"<b>【🚨 HKU 监控脚本异常】</b><br><br>在页面中未找到课程 <b>{TARGET_COURSE}</b> 的表格数据。"
             )
 
+    # 异常捕获 3：程序崩溃/网络超时发微信告警
     except Exception as e:
         err_msg = f"[-] 监控脚本运行发生严重错误: {e}"
         print(err_msg)
